@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
-import '../models/cheating_report.dart'; // ✅ Yeni model
+import '../models/cheating_report.dart';
+import '../models/student_answer.dart';
 
 class AnalyzeViewModel extends ChangeNotifier {
-  final List<XFile> imageFiles = [];
+  final List<StudentAnswer> imageFiles = [];
 
-  AnalysisResponse? results; // ✅ Değiştirildi
+  AnalysisResponse? results;
   bool isLoading = false;
 
-  void addImage(XFile file) {
-    imageFiles.add(file);
+  /// Öğrenci adı ve XFile ile yeni görsel ekler
+  void addImage(XFile file, String studentName) {
+    final fileAsFile = File(file.path);
+    imageFiles.add(StudentAnswer(name: studentName, image: fileAsFile));
     notifyListeners();
   }
 

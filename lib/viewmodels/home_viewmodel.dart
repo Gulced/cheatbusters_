@@ -5,13 +5,13 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 import '../models/student_answer.dart';
-import '../models/cheating_report.dart'; // ✅ Yeni model
+import '../models/cheating_report.dart';
 
 class HomeViewModel extends ChangeNotifier {
   final List<StudentAnswer> _answers = [];
 
   List<StudentAnswer> get answers => List.unmodifiable(_answers);
-  AnalysisResponse? result; // ✅ Yeni sonuç tipi
+  AnalysisResponse? result;
   bool isLoading = false;
 
   void addAnswer(String name, File image) {
@@ -27,7 +27,7 @@ class HomeViewModel extends ChangeNotifier {
 
   /// Görselleri multipart olarak gönderir, AnalysisResponse alır
   Future<void> analyzeAnswers() async {
-    const String backendBaseUrl = 'http://10.0.2.2:8000';
+    const String backendBaseUrl = 'http://10.0.2.2:8000'; // 🛜 Android emulator için localhost
     final url = Uri.parse('$backendBaseUrl/api/v1/analyze');
     final request = http.MultipartRequest('POST', url);
 
@@ -44,7 +44,8 @@ class HomeViewModel extends ChangeNotifier {
           'files',
           stream,
           length,
-          filename: file.path.split('/').last,
+          // ✅ ÖNEMLİ: Öğrenci ismini dosya adı olarak gönder
+          filename: '${answer.name}.jpg',
           contentType: MediaType('image', 'jpeg'),
         );
 
@@ -55,7 +56,7 @@ class HomeViewModel extends ChangeNotifier {
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> parsed = json.decode(utf8.decode(response.bodyBytes));
+        final parsed = json.decode(utf8.decode(response.bodyBytes));
         result = AnalysisResponse.fromJson(parsed);
       } else {
         result = AnalysisResponse(
