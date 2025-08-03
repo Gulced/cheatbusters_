@@ -1,32 +1,43 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../models/student_answer.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http_parser/http_parser.dart';
+import '../models/cheating_report.dart'; // 🔹 Response modelini import et
 
 class ApiService {
-  static Future<Map<String, dynamic>> analyzeBatch(List<StudentAnswer> answers) async {
-    final url = Uri.parse("http://192.168.110.93:8000/api/analyze-batch"); // IP’ni buraya yaz
+  static const String _baseUrl = 'http://192.168.110.93:8000'; // 🔁 Gerekirse değiştir
 
-    final imageList = await Future.wait(answers.map((e) async {
-      final bytes = await e.image.readAsBytes();
-      final base64Image = base64Encode(bytes);
-      return {
-        "name": e.name,
-        "base64": base64Image,
-      };
-    }));
+  static Future<AnalysisResponse> analyzeExams(List<XFile> imageFiles) async {
+    final uri = Uri.parse('$_baseUrl/api/v1/analyze');
+    final request = http.MultipartRequest('POST', uri);
 
-    final body = jsonEncode({"images": imageList});
+    try {
+      for (var imageFile in imageFiles) {
+        final stream = http.ByteStream(imageFile.openRead());
+        final length = await imageFile.length();
 
-    final response = await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: body,
-    );
+        final multipartFile = http.MultipartFile(
+          'files',
+          stream,
+          length,
+          filename: imageFile.name,
+          contentType: MediaType('image', 'jpeg'),
+        );
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception("Sunucu hatası: ${response.statusCode}");
+        request.files.add(multipartFile);
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final decoded = json.decode(utf8.decode(response.bodyBytes));
+        return AnalysisResponse.fromJson(decoded); // 🔹 Yeni modelden dönüş
+      } else {
+        throw Exception('❌ Sunucu hatası: ${response.statusCode}\nYanıt: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('❌ Bağlantı hatası: $e');
     }
   }
 }

@@ -6,5 +6,3 @@ class StudentAnswer {
 
   StudentAnswer({required this.name, required this.image});
 }
-
-

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/home_viewmodel.dart';
+import '../models/cheating_report.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -44,13 +45,10 @@ class HomePage extends StatelessWidget {
       return;
     }
 
-    debugPrint("📸 Resim çekildi: ${picked.path}");
-
     final imageFile = File(picked.path);
     final name = await _askForName(context);
 
     if (name.trim().isEmpty) {
-      debugPrint("⛔ İsim girilmedi, eklenmedi.");
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("İsim girilmedi! Görsel eklenmedi.")),
       );
@@ -72,7 +70,6 @@ class HomePage extends StatelessWidget {
       barrierDismissible: false,
       builder: (ctx) {
         return AlertDialog(
-          backgroundColor: Theme.of(context).dialogBackgroundColor,
           title: const Text("Öğrenci İsmi Gerekli"),
           content: TextField(
             controller: controller,
@@ -80,7 +77,6 @@ class HomePage extends StatelessWidget {
               hintText: "Örn: Elif Kaya",
             ),
             autofocus: true,
-            style: const TextStyle(color: Colors.white),
           ),
           actions: [
             TextButton(
@@ -110,21 +106,34 @@ class HomePage extends StatelessWidget {
       return;
     }
 
-    final results = await model.analyzeAnswers();
+    await model.analyzeAnswers();
+
+    final result = model.result;
+
+    if (result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Sonuç alınamadı.")),
+      );
+      return;
+    }
 
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).dialogBackgroundColor,
-        title: const Text("📊 Kopya Analiz Sonuçları"),
+        title: const Text("📊 Kopya Analiz Raporu"),
         content: SizedBox(
           width: double.maxFinite,
-          child: ListView(
+          child: result.report.isEmpty
+              ? const Text("Hiç kopya tespiti yapılmadı.")
+              : ListView(
             shrinkWrap: true,
-            children: results.entries.map((e) {
+            children: result.report.map((report) {
+              final students = report.students.join(" ↔ ");
+              final score = report.similarityScore.toStringAsFixed(2);
+              final reason = report.analysis.reason;
               return ListTile(
-                title: Text(e.key),
-                trailing: Text("%${e.value}"),
+                title: Text("$students\nBenzerlik: %$score"),
+                subtitle: Text(reason),
               );
             }).toList(),
           ),

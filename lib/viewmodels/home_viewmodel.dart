@@ -2,12 +2,17 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+
 import '../models/student_answer.dart';
+import '../models/cheating_report.dart'; // ✅ Yeni model
 
 class HomeViewModel extends ChangeNotifier {
   final List<StudentAnswer> _answers = [];
 
   List<StudentAnswer> get answers => List.unmodifiable(_answers);
+  AnalysisResponse? result; // ✅ Yeni sonuç tipi
+  bool isLoading = false;
 
   void addAnswer(String name, File image) {
     _answers.add(StudentAnswer(name: name, image: image));
@@ -16,44 +21,60 @@ class HomeViewModel extends ChangeNotifier {
 
   void clearAnswers() {
     _answers.clear();
+    result = null;
     notifyListeners();
   }
 
-  /// Gerçek analiz: görselleri API'ye gönderir, skorları alır
-  Future<Map<String, double>> analyzeAnswers() async {
-    const String backendBaseUrl = 'http://10.0.2.2:8000'; // ANDROID EMÜLATÖR için
-    final url = Uri.parse('$backendBaseUrl/api/analyze-batch');
+  /// Görselleri multipart olarak gönderir, AnalysisResponse alır
+  Future<void> analyzeAnswers() async {
+    const String backendBaseUrl = 'http://10.0.2.2:8000';
+    final url = Uri.parse('$backendBaseUrl/api/v1/analyze');
+    final request = http.MultipartRequest('POST', url);
 
-    // Görselleri base64 + ad ile JSON'a hazırla
-    final imagesJson = await Future.wait(_answers.map((answer) async {
-      final bytes = await answer.image.readAsBytes();
-      final base64Image = base64Encode(bytes);
-      return {
-        "name": answer.name,
-        "base64": base64Image,
-      };
-    }));
-
-    final body = jsonEncode({"images": imagesJson});
+    isLoading = true;
+    notifyListeners();
 
     try {
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: body,
-      );
+      for (var answer in _answers) {
+        final file = answer.image;
+        final stream = http.ByteStream(file.openRead());
+        final length = await file.length();
+
+        final multipartFile = http.MultipartFile(
+          'files',
+          stream,
+          length,
+          filename: file.path.split('/').last,
+          contentType: MediaType('image', 'jpeg'),
+        );
+
+        request.files.add(multipartFile);
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        final Map<String, dynamic> sim = decoded["similarities"];
-        return sim.map((key, value) => MapEntry(key, (value as num).toDouble()));
+        final Map<String, dynamic> parsed = json.decode(utf8.decode(response.bodyBytes));
+        result = AnalysisResponse.fromJson(parsed);
       } else {
-        debugPrint("❌ Sunucu hatası: ${response.statusCode}");
-        return {};
+        result = AnalysisResponse(
+          totalDocumentsProcessed: 0,
+          cheatingPairsFound: 0,
+          report: [],
+          error: 'Sunucu hatası: ${response.statusCode}',
+        );
       }
     } catch (e) {
-      debugPrint("❌ API çağrısı başarısız: $e");
-      return {};
+      result = AnalysisResponse(
+        totalDocumentsProcessed: 0,
+        cheatingPairsFound: 0,
+        report: [],
+        error: 'Bağlantı hatası: $e',
+      );
+    } finally {
+      isLoading = false;
+      notifyListeners();
     }
   }
 }

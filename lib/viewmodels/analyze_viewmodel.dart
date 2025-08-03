@@ -1,40 +1,53 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import '../models/student_answer.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
+import '../models/cheating_report.dart'; // ✅ Yeni model
 
 class AnalyzeViewModel extends ChangeNotifier {
-  List<File> imageFiles = [];
-  List<StudentAnswer> answers = [];
-  Map<String, dynamic>? results;
+  final List<XFile> imageFiles = [];
+
+  AnalysisResponse? results; // ✅ Değiştirildi
   bool isLoading = false;
 
-  void addImage(File file, String name) {
+  void addImage(XFile file) {
     imageFiles.add(file);
-    answers.add(StudentAnswer(name: name, image: file));
     notifyListeners();
   }
 
   void clearAll() {
     imageFiles.clear();
-    answers.clear();
     results = null;
     notifyListeners();
   }
 
   Future<void> sendImagesForAnalysis() async {
+    if (imageFiles.length < 2) {
+      results = AnalysisResponse(
+        totalDocumentsProcessed: 0,
+        cheatingPairsFound: 0,
+        report: [],
+        error: "Lütfen en az 2 görsel seçin.",
+      );
+      notifyListeners();
+      return;
+    }
+
     isLoading = true;
     notifyListeners();
 
     try {
-      final response = await ApiService.analyzeBatch(answers);
+      final response = await ApiService.analyzeExams(imageFiles);
       results = response;
     } catch (e) {
-      print("❌ API çağrısı başarısız: $e");
-      results = {};
+      results = AnalysisResponse(
+        totalDocumentsProcessed: 0,
+        cheatingPairsFound: 0,
+        report: [],
+        error: e.toString(),
+      );
+    } finally {
+      isLoading = false;
+      notifyListeners();
     }
-
-    isLoading = false;
-    notifyListeners();
   }
 }
