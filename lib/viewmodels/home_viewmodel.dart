@@ -1,9 +1,9 @@
-import 'package:mime/mime.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart';
 
 import '../models/student_answer.dart';
 import '../models/cheating_report.dart';
@@ -22,6 +22,12 @@ class HomeViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Belirli index'teki öğrenci cevabını siler
+  void removeAnswerAt(int index) {
+    _answers.removeAt(index);
+    notifyListeners();
+  }
+
   /// Tüm cevapları ve sonucu temizler
   void clearAnswers() {
     _answers.clear();
@@ -29,9 +35,9 @@ class HomeViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Görselleri multipart olarak backend'e gönderir
+  /// Görselleri multipart olarak backend'e gönderir ve analiz sonucunu alır
   Future<void> analyzeAnswers() async {
-    const String backendBaseUrl = 'http://192.168.1.111:8000'; // 🛜 Android Emulator için localhost
+    const String backendBaseUrl = 'http://192.168.1.111:8000';
     final url = Uri.parse('$backendBaseUrl/api/v1/analyze');
     final request = http.MultipartRequest('POST', url);
 
@@ -48,11 +54,12 @@ class HomeViewModel extends ChangeNotifier {
 
         final mimeType = lookupMimeType(file.path) ?? 'image/jpeg';
         final mimeParts = mimeType.split('/');
+
         final multipartFile = http.MultipartFile(
           'files',
           stream,
           length,
-          filename: '${answer.name}.jpg', // Öğrenci ismini filename olarak gönderiyoruz
+          filename: '${answer.name}.jpg',
           contentType: MediaType(mimeParts[0], mimeParts[1]),
         );
 

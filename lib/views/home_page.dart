@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-
 import '../viewmodels/home_viewmodel.dart';
 import '../models/cheating_report.dart';
 
@@ -74,18 +73,14 @@ class HomePage extends StatelessWidget {
           title: const Text("🧑‍🎓 Öğrenci İsmi Gerekli"),
           content: TextField(
             controller: controller,
-            decoration: const InputDecoration(
-              hintText: "Örn: Elif Kaya",
-            ),
+            decoration: const InputDecoration(hintText: "Örn: Elif Kaya"),
             autofocus: true,
           ),
           actions: [
             TextButton(
               onPressed: () {
                 final input = controller.text.trim();
-                if (input.isNotEmpty) {
-                  Navigator.of(ctx).pop(input);
-                }
+                if (input.isNotEmpty) Navigator.of(ctx).pop(input);
               },
               child: const Text("Kaydet"),
             ),
@@ -108,7 +103,6 @@ class HomePage extends StatelessWidget {
     }
 
     await model.analyzeAnswers();
-
     final result = model.result;
 
     if (result == null || result.error != null) {
@@ -144,11 +138,12 @@ class HomePage extends StatelessWidget {
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (isCheating)
-                      Text("Benzerlik: $score"),
+                    if (isCheating) Text("Benzerlik: $score"),
                     Text("Gerekçe: $reason"),
                     Text(
-                      isCheating ? "🚨 Kopya Tespit Edildi" : "✅ Kopya Tespit Edilmedi",
+                      isCheating
+                          ? "🚨 Kopya Tespit Edildi"
+                          : "✅ Kopya Tespit Edilmedi",
                       style: TextStyle(
                         color: isCheating ? Colors.red : Colors.green,
                         fontWeight: FontWeight.w600,
@@ -170,67 +165,140 @@ class HomePage extends StatelessWidget {
     );
   }
 
+  void _confirmClear(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("⚠️ Tümünü Sil"),
+        content: const Text("Tüm cevapları silmek istediğinize emin misiniz?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text("İptal"),
+          ),
+          TextButton(
+            onPressed: () {
+              Provider.of<HomeViewModel>(context, listen: false).clearAnswers();
+              Navigator.of(ctx).pop();
+            },
+            child: const Text("Evet, Sil"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final model = Provider.of<HomeViewModel>(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("CheatBuster – Sınav Yükle"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: "Tüm verileri temizle",
-            onPressed: () => model.clearAnswers(),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ElevatedButton.icon(
-                icon: const Icon(Icons.add_photo_alternate),
-                label: const Text("Öğrenci Cevabı Yükle"),
-                onPressed: () => _showImageSourceDialog(context),
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            backgroundColor: Colors.deepPurple, // Mor zemin
+            centerTitle: true, // Yazıyı ortala
+            title: const Text(
+              "CheatBusters",
+              style: TextStyle(
+                color: Colors.white, // Yazı beyaz
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                letterSpacing: 1.2,
               ),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.analytics),
-                label: const Text("Analiz Et"),
-                onPressed: () => _analyze(context),
+            ),
+          ),
+
+          body: Column(
+            children: [
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.analytics),
+                    label: const Text("Analiz Et"),
+                    onPressed: () => _analyze(context),
+                  ),
+                ],
+              ),
+              const Divider(height: 20),
+              Expanded(
+                child: model.answers.isEmpty
+                    ? const Center(
+                  child: Text(
+                    "📭 Henüz görsel yüklenmedi",
+                    style: TextStyle(fontSize: 16),
+                  ),
+                )
+                    : ListView.builder(
+                  itemCount: model.answers.length,
+                  itemBuilder: (context, index) {
+                    final item = model.answers[index];
+                    return Dismissible(
+                      key: Key(item.name + item.image.path),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        color: Colors.red,
+                        alignment: Alignment.centerRight,
+                        padding:
+                        const EdgeInsets.symmetric(horizontal: 20),
+                        child:
+                        const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      onDismissed: (_) {
+                        model.removeAnswerAt(index);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content: Text("${item.name} silindi.")),
+                        );
+                      },
+                      child: ListTile(
+                        leading: Image.file(
+                          item.image,
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.broken_image),
+                        ),
+                        title: Text(item.name),
+                      ),
+                    );
+                  },
+                ),
               ),
             ],
           ),
-          const Divider(height: 20),
-          Expanded(
-            child: model.answers.isEmpty
-                ? const Center(
-              child: Text(
-                "📭 Henüz görsel yüklenmedi",
-                style: TextStyle(fontSize: 16),
-              ),
-            )
-                : ListView.builder(
-              itemCount: model.answers.length,
-              itemBuilder: (context, index) {
-                final item = model.answers[index];
-                return ListTile(
-                  leading: Image.file(
-                    item.image,
-                    width: 50,
-                    height: 50,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
-                  ),
-                  title: Text(item.name),
-                );
-              },
+          floatingActionButton: Padding(
+            padding: const EdgeInsets.only(bottom: 16, left: 40, right: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                FloatingActionButton.extended(
+                  onPressed: () => _confirmClear(context),
+                  label: const Text("Tümünü Sil"),
+                  icon: const Icon(Icons.delete_outline),
+                  backgroundColor: Colors.redAccent,
+                ),
+                FloatingActionButton.extended(
+                  onPressed: () => _showImageSourceDialog(context),
+                  label: const Text("Cevap Ekle"),
+                  icon: const Icon(Icons.add),
+                  backgroundColor: Colors.deepPurple,
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+        if (model.isLoading)
+          Container(
+            color: Colors.black.withOpacity(0.4),
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          ),
+      ],
     );
   }
 }
