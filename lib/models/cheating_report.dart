@@ -13,9 +13,9 @@ class AnalysisResponse {
 
   factory AnalysisResponse.fromJson(Map<String, dynamic> json) {
     return AnalysisResponse(
-      totalDocumentsProcessed: json['total_documents_processed'],
-      cheatingPairsFound: json['cheating_pairs_found'],
-      report: (json['report'] as List)
+      totalDocumentsProcessed: json['total_documents_processed'] ?? 0,
+      cheatingPairsFound: json['cheating_pairs_found'] ?? 0,
+      report: (json['report'] as List<dynamic>? ?? [])
           .map((e) => CheatingReport.fromJson(e))
           .toList(),
       error: json['error'],
@@ -25,7 +25,7 @@ class AnalysisResponse {
 
 class CheatingReport {
   final List<String> students;
-  final double similarityScore;
+  final double? similarityScore;
   final DetailedAnalysis analysis;
 
   CheatingReport({
@@ -36,9 +36,11 @@ class CheatingReport {
 
   factory CheatingReport.fromJson(Map<String, dynamic> json) {
     return CheatingReport(
-      students: List<String>.from(json['students']),
-      similarityScore: (json['similarity_score'] as num).toDouble(),
-      analysis: DetailedAnalysis.fromJson(json['analysis']),
+      students: List<String>.from(json['students'] ?? []),
+      similarityScore: json['similarity_score'] != null
+          ? (json['similarity_score'] as num).toDouble()
+          : null,
+      analysis: DetailedAnalysis.fromJson(json['analysis'] ?? {}),
     );
   }
 }
@@ -56,9 +58,9 @@ class DetailedAnalysis {
 
   factory DetailedAnalysis.fromJson(Map<String, dynamic> json) {
     return DetailedAnalysis(
-      isCheating: json['is_cheating'],
-      reason: json['reason'],
-      suspiciousParts: List<String>.from(json['suspicious_parts']),
+      isCheating: json['is_cheating'] ?? false,
+      reason: json['reason'] ?? "Belirtilmedi",
+      suspiciousParts: List<String>.from(json['suspicious_parts'] ?? []),
     );
   }
 }

@@ -18,6 +18,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
 
   Future<void> _pickAndAnalyze() async {
     final images = await _picker.pickMultiImage();
+
     if (images.isEmpty || images.length < 2) {
       setState(() => _status = '⚠️ En az 2 görsel seçmelisiniz.');
       return;
@@ -42,9 +43,9 @@ class _AnalysisPageState extends State<AnalysisPage> {
   Widget _buildResultReport() {
     if (_result == null) return const SizedBox.shrink();
 
-    final report = _result!['report'] as List<dynamic>;
-    final total = _result!['total_documents_processed'];
-    final cheatingCount = _result!['cheating_pairs_found'];
+    final report = _result!['report'] as List<dynamic>? ?? [];
+    final total = _result!['total_documents_processed'] ?? 0;
+    final cheatingCount = _result!['cheating_pairs_found'] ?? 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,22 +54,42 @@ class _AnalysisPageState extends State<AnalysisPage> {
         Text("🚨 Tespit Edilen Kopya Çifti: $cheatingCount"),
         const Divider(),
         ...report.map((e) {
-          final students = (e['students'] as List).join(' vs ');
-          final similarity = (e['similarity_score'] * 100).toStringAsFixed(1);
-          final reason = e['analysis']['reason'];
-          final parts = (e['analysis']['suspicious_parts'] as List).join(', ');
+          final students = (e['students'] as List<dynamic>).join(' vs ');
+          final analysis = e['analysis'] ?? {};
+          final similarityRaw = e['similarity_score'];
+          final similarity = similarityRaw != null
+              ? (similarityRaw).toStringAsFixed(1)
+              : "—";
+
+          final reason = analysis['reason'] ?? "Belirtilmedi";
+          final parts = (analysis['suspicious_parts'] as List<dynamic>? ?? []).join(', ');
 
           return Card(
-            color: Colors.red.shade50,
+            color: analysis['is_cheating'] == true
+                ? Colors.red.shade100
+                : Colors.green.shade100,
             margin: const EdgeInsets.symmetric(vertical: 6),
             child: ListTile(
-              title: Text("$students"),
+              title: Text(students),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Benzerlik: %$similarity"),
+                  if (analysis['is_cheating'] == true)
+                    Text("Benzerlik: %$similarity"),
                   Text("Gerekçe: $reason"),
                   if (parts.isNotEmpty) Text("Şüpheli Bölümler: $parts"),
+                  const SizedBox(height: 4),
+                  Text(
+                    analysis['is_cheating'] == true
+                        ? "🚨 Kopya Tespit Edildi"
+                        : "✅ Kopya Tespit Edilmedi",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: analysis['is_cheating'] == true
+                          ? Colors.red
+                          : Colors.green,
+                    ),
+                  ),
                 ],
               ),
             ),

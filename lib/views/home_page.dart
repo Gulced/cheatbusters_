@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+
 import '../viewmodels/home_viewmodel.dart';
 import '../models/cheating_report.dart';
 
@@ -50,7 +51,7 @@ class HomePage extends StatelessWidget {
 
     if (name.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("İsim girilmedi! Görsel eklenmedi.")),
+        const SnackBar(content: Text("⚠️ İsim girilmedi! Görsel eklenmedi.")),
       );
       return;
     }
@@ -70,7 +71,7 @@ class HomePage extends StatelessWidget {
       barrierDismissible: false,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text("Öğrenci İsmi Gerekli"),
+          title: const Text("🧑‍🎓 Öğrenci İsmi Gerekli"),
           content: TextField(
             controller: controller,
             decoration: const InputDecoration(
@@ -101,7 +102,7 @@ class HomePage extends StatelessWidget {
 
     if (model.answers.length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Analiz için en az 2 öğrenci cevabı gerekir.")),
+        const SnackBar(content: Text("⚠️ En az 2 öğrenci cevabı yüklemelisiniz.")),
       );
       return;
     }
@@ -110,9 +111,9 @@ class HomePage extends StatelessWidget {
 
     final result = model.result;
 
-    if (result == null) {
+    if (result == null || result.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Sonuç alınamadı.")),
+        SnackBar(content: Text("❌ Hata: ${result?.error ?? "Sonuç alınamadı."}")),
       );
       return;
     }
@@ -124,16 +125,37 @@ class HomePage extends StatelessWidget {
         content: SizedBox(
           width: double.maxFinite,
           child: result.report.isEmpty
-              ? const Text("Hiç kopya tespiti yapılmadı.")
+              ? const Text("✅ Hiç kopya tespiti yapılmadı.")
               : ListView(
             shrinkWrap: true,
             children: result.report.map((report) {
               final students = report.students.join(" ↔ ");
-              final score = report.similarityScore.toStringAsFixed(2);
+              final score = report.similarityScore != null
+                  ? "${report.similarityScore!.toStringAsFixed(2)}%"
+                  : "—";
               final reason = report.analysis.reason;
+              final isCheating = report.analysis.isCheating;
+
               return ListTile(
-                title: Text("$students\nBenzerlik: %$score"),
-                subtitle: Text(reason),
+                title: Text(
+                  students,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isCheating)
+                      Text("Benzerlik: $score"),
+                    Text("Gerekçe: $reason"),
+                    Text(
+                      isCheating ? "🚨 Kopya Tespit Edildi" : "✅ Kopya Tespit Edilmedi",
+                      style: TextStyle(
+                        color: isCheating ? Colors.red : Colors.green,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               );
             }).toList(),
           ),
@@ -186,7 +208,7 @@ class HomePage extends StatelessWidget {
             child: model.answers.isEmpty
                 ? const Center(
               child: Text(
-                "Henüz görsel yüklenmedi",
+                "📭 Henüz görsel yüklenmedi",
                 style: TextStyle(fontSize: 16),
               ),
             )
@@ -200,8 +222,7 @@ class HomePage extends StatelessWidget {
                     width: 50,
                     height: 50,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.broken_image),
+                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
                   ),
                   title: Text(item.name),
                 );

@@ -1,3 +1,4 @@
+import 'package:mime/mime.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -11,23 +12,26 @@ class HomeViewModel extends ChangeNotifier {
   final List<StudentAnswer> _answers = [];
 
   List<StudentAnswer> get answers => List.unmodifiable(_answers);
+
   AnalysisResponse? result;
   bool isLoading = false;
 
+  /// Yeni öğrenci cevabı ekler
   void addAnswer(String name, File image) {
     _answers.add(StudentAnswer(name: name, image: image));
     notifyListeners();
   }
 
+  /// Tüm cevapları ve sonucu temizler
   void clearAnswers() {
     _answers.clear();
     result = null;
     notifyListeners();
   }
 
-  /// Görselleri multipart olarak gönderir, AnalysisResponse alır
+  /// Görselleri multipart olarak backend'e gönderir
   Future<void> analyzeAnswers() async {
-    const String backendBaseUrl = 'http://10.0.2.2:8000'; // 🛜 Android emulator için localhost
+    const String backendBaseUrl = 'http://192.168.1.111:8000'; // 🛜 Android Emulator için localhost
     final url = Uri.parse('$backendBaseUrl/api/v1/analyze');
     final request = http.MultipartRequest('POST', url);
 
@@ -37,16 +41,19 @@ class HomeViewModel extends ChangeNotifier {
     try {
       for (var answer in _answers) {
         final file = answer.image;
+        if (!file.existsSync()) continue;
+
         final stream = http.ByteStream(file.openRead());
         final length = await file.length();
 
+        final mimeType = lookupMimeType(file.path) ?? 'image/jpeg';
+        final mimeParts = mimeType.split('/');
         final multipartFile = http.MultipartFile(
           'files',
           stream,
           length,
-          // ✅ ÖNEMLİ: Öğrenci ismini dosya adı olarak gönder
-          filename: '${answer.name}.jpg',
-          contentType: MediaType('image', 'jpeg'),
+          filename: '${answer.name}.jpg', // Öğrenci ismini filename olarak gönderiyoruz
+          contentType: MediaType(mimeParts[0], mimeParts[1]),
         );
 
         request.files.add(multipartFile);
@@ -63,7 +70,7 @@ class HomeViewModel extends ChangeNotifier {
           totalDocumentsProcessed: 0,
           cheatingPairsFound: 0,
           report: [],
-          error: 'Sunucu hatası: ${response.statusCode}',
+          error: '❌ Sunucu hatası: ${response.statusCode}',
         );
       }
     } catch (e) {
@@ -71,7 +78,7 @@ class HomeViewModel extends ChangeNotifier {
         totalDocumentsProcessed: 0,
         cheatingPairsFound: 0,
         report: [],
-        error: 'Bağlantı hatası: $e',
+        error: '❌ Bağlantı hatası: $e',
       );
     } finally {
       isLoading = false;

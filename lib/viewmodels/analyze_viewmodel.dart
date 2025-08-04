@@ -6,26 +6,28 @@ import '../models/cheating_report.dart';
 import '../models/student_answer.dart';
 
 class AnalyzeViewModel extends ChangeNotifier {
-  final List<StudentAnswer> imageFiles = [];
+  final List<StudentAnswer> answers = []; // ✅ Daha anlamlı isim
 
   AnalysisResponse? results;
   bool isLoading = false;
 
   /// Öğrenci adı ve XFile ile yeni görsel ekler
-  void addImage(XFile file, String studentName) {
+  void addAnswer(XFile file, String studentName) {
     final fileAsFile = File(file.path);
-    imageFiles.add(StudentAnswer(name: studentName, image: fileAsFile));
+    answers.add(StudentAnswer(name: studentName, image: fileAsFile));
     notifyListeners();
   }
 
+  /// Tüm verileri sıfırlar
   void clearAll() {
-    imageFiles.clear();
+    answers.clear();
     results = null;
     notifyListeners();
   }
 
+  /// Görselleri analiz için API'ye gönderir
   Future<void> sendImagesForAnalysis() async {
-    if (imageFiles.length < 2) {
+    if (answers.length < 2) {
       results = AnalysisResponse(
         totalDocumentsProcessed: 0,
         cheatingPairsFound: 0,
@@ -40,7 +42,7 @@ class AnalyzeViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await ApiService.analyzeExams(imageFiles);
+      final response = await ApiService.analyzeExams(answers);
       results = response;
     } catch (e) {
       results = AnalysisResponse(
